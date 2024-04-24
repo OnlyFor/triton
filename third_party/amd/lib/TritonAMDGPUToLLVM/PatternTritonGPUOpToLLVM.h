@@ -30,6 +30,9 @@ void populateSPMDOpToLLVMPattern(LLVMTypeConverter &typeConverter,
                                  RewritePatternSet &patterns,
                                  PatternBenefit benefit);
 
+void populateExternToLLVM(LLVMTypeConverter &typeConverter,
+                          RewritePatternSet &patterns, PatternBenefit benefit);
+
 } // namespace mlir::triton::AMD
 
 #endif
