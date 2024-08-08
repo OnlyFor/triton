@@ -5041,11 +5041,14 @@ def test_convertmma2mma(M, N, mma_pair, dtype, device):
 
     src_layout, _ = mma_pair
     num_warps = np.cumprod(src_layout.warps_per_cta)[-1]
+    # TODO(Keren): Remove the intermediate layout once we have resolved the redundantDataMask issue for WGMMA
+    interm = BlockedLayout([1, 4], [4, THREADS_PER_WARP // 4], [4, 1], [0, 1], [1, 1], [1, 1], [0, 1])
 
     def do_test(src_layout, dst_layout):
         layouts = f"""
         #src = {src_layout}
         #dst = {dst_layout}
+        #interm = {interm}
         """
 
         conversion = f"""
@@ -5068,10 +5071,12 @@ def test_convertmma2mma(M, N, mma_pair, dtype, device):
         %9 = arith.addi %8, %7 : tensor<{M}x{N}xi32, #src>
         %10 = tt.addptr %2, %9 : tensor<{M}x{N}x!tt.ptr<f16>, #src>, tensor<{M}x{N}xi32, #src>
         %11 = tt.load %10 : tensor<{M}x{N}x!tt.ptr<f16>, #src>
-        %3 = tt.splat %arg1 : !tt.ptr<f16> -> tensor<{M}x{N}x!tt.ptr<f16>, #dst>
+        %3 = tt.splat %arg1 : !tt.ptr<f16> -> tensor<{M}x{N}x!tt.ptr<f16>, #interm>
         """ + conversion + f"""
-        %14 = tt.addptr %3, %12 : tensor<{M}x{N}x!tt.ptr<f16>, #dst>, tensor<{M}x{N}xi32, #dst>
-        tt.store %14, %13 : tensor<{M}x{N}x!tt.ptr<f16>, #dst>
+        %15 = triton_gpu.convert_layout %12 : tensor<{M}x{N}xi32, #dst> -> tensor<{M}x{N}xi32, #interm>
+        %16 = triton_gpu.convert_layout %13 : tensor<{M}x{N}xf16, #dst> -> tensor<{M}x{N}xf16, #interm>
+        %17 = tt.addptr %3, %15 : tensor<{M}x{N}x!tt.ptr<f16>, #interm>, tensor<{M}x{N}xi32, #interm>
+        tt.store %17, %16 : tensor<{M}x{N}x!tt.ptr<f16>, #interm>
         tt.return
         }}
         }}
