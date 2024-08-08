@@ -242,23 +242,23 @@ LinearLayout ensureLayoutNotLargerThan(
       continue;
     }
     assert(actualSize % desiredSize == 0);
-    // inDimName -> <baseIdx, output>
-    std::vector<std::pair<StringAttr, std::pair<int, int>>> sortedBases;
+    // <inDimName, baseIdx, output>
+    std::vector<std::tuple<StringAttr, int, int>> sortedBases;
     for (auto [inDimName, basis] : bases) {
       for (size_t baseIdx = 0; baseIdx < basis.size(); baseIdx++) {
-        sortedBases.emplace_back(
-            inDimName, std::make_pair(baseIdx, basis[baseIdx][outDim.index()]));
+        sortedBases.emplace_back(inDimName, baseIdx,
+                                 basis[baseIdx][outDim.index()]);
       }
     }
     // From the largest basis to the smallest.
-    llvm::sort(sortedBases, [](auto a, auto b) { return a.second > b.second; });
-    for (auto [inDimName, basisIdxAndOut] : sortedBases) {
+    llvm::sort(sortedBases,
+               [](auto a, auto b) { return std::get<2>(a) > std::get<2>(b); });
+    for (auto [inDimName, basisIdx, out] : sortedBases) {
       if (actualSize <= desiredSize) {
         break;
       }
-      auto [basisIdx, out] = basisIdxAndOut;
       if (out == 0) {
-        continue;
+        break;
       }
       bases[inDimName][basisIdx][outDim.index()] = 0;
       actualSize /= 2;

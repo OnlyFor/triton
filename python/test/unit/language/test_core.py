@@ -5042,7 +5042,9 @@ def test_convertmma2mma(M, N, mma_pair, dtype, device):
     src_layout, _ = mma_pair
     num_warps = np.cumprod(src_layout.warps_per_cta)[-1]
     # TODO(Keren): Remove the intermediate layout once we have resolved the redundantDataMask issue for WGMMA
-    interm = BlockedLayout([1, 4], [4, THREADS_PER_WARP // 4], [4, 1], [0, 1], [1, 1], [1, 1], [0, 1])
+    warps_per_cta = src_layout.warps_per_cta
+    interm = BlockedLayout([1, 4], [4, THREADS_PER_WARP // 4], [warps_per_cta[0], warps_per_cta[1]], [0, 1], [1, 1],
+                           [1, 1], [0, 1])
 
     def do_test(src_layout, dst_layout):
         layouts = f"""
