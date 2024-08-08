@@ -296,20 +296,11 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // 1. The `src_layout` has the same number of registers as the `dst_layout`.
     // 2. The `src_layout` has fewer registers than the `dst_layout`.
     // 3. The `src_layout` has more registers than the `dst_layout`.
-    // In the second case, we may generate a conversion such as:
-    //
-    //                  reg   |   lane
-    //  reg (base=1)     1    |    0
-    //  reg (base=2)     2    |    0
-    //  --------------------------------
-    //  lane (base=1)    4    |    0
-    //  lane (base=2)    0    |    1
-    //
-    // This layout is not surjective because not all lanes are covered.
-    // Instead, we could use the inverse of the conversion, mapping from
-    // `dst_layout` to `src_layout`, which is surjective.  This inverse layout
-    // indicates that multiple destination registers may come from the same
-    // source register.
+    // In the second case, we may generate a conversion that is not surjective
+    // because not all lanes are covered. Instead, we could use the inverse of
+    // the conversion, mapping from `dst_layout` to `src_layout`, which is
+    // surjective.  This inverse layout indicates that multiple destination
+    // registers may come from the same source register.
     //
     if (std::optional<LinearLayout> srcToDst = conversion.divideRight(
             LinearLayout::identity1D(numLanes, kLane, kLane) *
@@ -400,9 +391,6 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // blocked/slice conversions.  Once we have ldmatrix support in
     // load/storeDistributedToShared, we can remove this constraint.
     std::function<bool(Attribute)> layoutIsOK = [&](Attribute layout) {
-      if (isa<NvidiaMmaEncodingAttr>(layout)) {
-        return true;
-      }
       if (isa<BlockedEncodingAttr>(layout)) {
         return true;
       }
