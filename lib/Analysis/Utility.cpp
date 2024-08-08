@@ -570,7 +570,6 @@ bool cvtNeedsSharedMemory(RankedTensorType srcTy, RankedTensorType dstTy) {
   if (srcLayout.has_value() && dstLayout.has_value()) {
     // comp describes the layout function for converting from src to dst.
     LinearLayout comp = srcLayout->invertAndCompose(*dstLayout);
-    LinearLayout inverseComp = dstLayout->invertAndCompose(*srcLayout);
     StringAttr kLane = StringAttr::get(ctx, "lane");
     StringAttr kWarp = StringAttr::get(ctx, "warp");
     StringAttr kBlock = StringAttr::get(ctx, "block");
@@ -586,16 +585,6 @@ bool cvtNeedsSharedMemory(RankedTensorType srcTy, RankedTensorType dstTy) {
                                                   kWarp, kWarp) *
                          LinearLayout::identity1D(comp.getInDimSize(kBlock),
                                                   kBlock, kBlock))
-            .has_value()) {
-      return false;
-    }
-    if (inverseComp
-            .divideRight(LinearLayout::identity1D(
-                             inverseComp.getInDimSize(kLane), kLane, kLane) *
-                         LinearLayout::identity1D(
-                             inverseComp.getInDimSize(kWarp), kWarp, kWarp) *
-                         LinearLayout::identity1D(
-                             inverseComp.getInDimSize(kBlock), kBlock, kBlock))
             .has_value()) {
       return false;
     }

@@ -274,7 +274,6 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // block -> block mapping is {1, 2, 4, ...} then there's no movement between
     // data in different CTAs and we know we're not in case 4.
     LinearLayout conversion = srcLayout->invertAndCompose(*dstLayout);
-    LinearLayout inverseConversion = dstLayout->invertAndCompose(*srcLayout);
 
     int numLanes = conversion.getInDimSize(str_attr("lane"));
     int numWarps = conversion.getInDimSize(str_attr("warp"));
@@ -310,6 +309,8 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       auto inRegSize = srcLayout->getInDimSize(kRegister);
       auto outRegSize = dstLayout->getInDimSize(kRegister);
       if (inRegSize <= outRegSize) {
+        LinearLayout inverseConversion =
+            dstLayout->invertAndCompose(*srcLayout);
         auto dstToSrc = inverseConversion.divideRight(
             LinearLayout::identity1D(numLanes, kLane, kLane) *
             LinearLayout::identity1D(numWarps, kWarp, kWarp) *
