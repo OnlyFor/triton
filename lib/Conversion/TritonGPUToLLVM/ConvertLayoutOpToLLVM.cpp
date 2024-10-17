@@ -338,9 +338,44 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     //
     // In the second case `srcLayout . dstLayout^-1` is not surjective
     // because not all destination registers are covered.
-    // Since the goal is to cover all of the destination
-    // registers, we can instead use `dstLayout . srcLayout^-1`.
-    LinearLayout conversion = dstLayout.invertAndCompose(srcLayout);
+    // `dstLayout . srcLayout^-1` is surjective in both the second and the third
+    // cases because all source registers are covered.
+    //
+    // However, using the original layout leads to inconsistencies.  The
+    // `invertAndCompose` function will generate a layout that is injective
+    // by assigning new output dimensions to free variables.  For instance,
+    // consider a scenario where `srcLayout` has a free variable in the lane
+    // dimension, while `dstLayout` has two free variables in the lane
+    // dimension and also a larger number of registers.
+    // The injective form of `srcLayout` will add only a single additional row
+    // to the transformation matrix, whereas the injective form of `dstLayout`
+    // will add two additional rows.  This discrepancy causes misleading results
+    // because the matrices end up with a different number of rows.
+    //
+    // Take `dstLayout ⋅ srcLayout^-1` as an example:
+    //
+    //  - `injective(dstLayout)`: [n, m] → [n + 2, m]
+    //  - `injective(srcLayout)`: [n, m] → [n + 1, m]
+    //  - `injective(srcLayout)^-1`: [n + 1, m] → [m, n + 1]
+    //  - `injective(dstLayout) ⋅ injective(srcLayout)^-1`: [n + 2, m] ⋅ [m, n +
+    //  1] → [n + 2, n + 1]
+    //
+    // Here, the `(n + 1)`-th row added by `dstLayout` represents the free
+    // variable in registers, and the `(n + 2)`-th row represents the free
+    // variable in lanes.  However, the `(n + 1)`-th row added by `srcLayout`
+    // represents the free variable in lanes.  As a result, the `(n + 1)`-th row
+    // in two layouts does not correspond to the same free variable.
+    //
+    // To address this issue, we pad the free variables in `srcLayout` and
+    // `dstLayout` to ensure they have the same number of registers.  This
+    // guarantees that the resulting matrices have the same number of rows,
+    // ensuring consistency in the composition process.
+    auto regSize = std::max(srcLayout.getInDimSize(kRegister),
+                            dstLayout.getInDimSize(kRegister));
+    auto dstLayoutFreeRegs = dstLayout.resize(kRegister, regSize);
+    auto srcLayoutFreeRegs = srcLayout.resize(kRegister, regSize);
+    LinearLayout conversion =
+        dstLayoutFreeRegs.invertAndCompose(srcLayoutFreeRegs);
     auto dstToSrc = conversion.divideRight(
         LinearLayout::identity1D(conversion.getInDimSize(kLane), kLane, kLane) *
         LinearLayout::identity1D(conversion.getInDimSize(kWarp), kWarp, kWarp) *
@@ -355,8 +390,8 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
 
     auto inVals = unpackLLElements(loc, adaptor.getSrc(), rewriter);
     SmallVector<Value> outVals;
-    outVals.resize(dstToSrc->getInDimSize(kRegister));
-    for (int i = 0; i < dstToSrc->getInDimSize(kRegister); i++) {
+    outVals.resize(dstLayout.getInDimSize(kRegister));
+    for (int i = 0; i < dstLayout.getInDimSize(kRegister); i++) {
       auto srcIdx = dstToSrc->apply({{kRegister, i}});
       outVals[i] = inVals[srcIdx.begin()->second];
     }
