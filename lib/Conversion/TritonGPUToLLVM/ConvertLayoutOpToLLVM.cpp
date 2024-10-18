@@ -334,16 +334,16 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     return outVals32;
   }
 
-  auto unpackI32s(ArrayRef<Value> inVals, ConversionPatternRewriter &rewriter,
+  auto unpackI32s(ArrayRef<Value> inVals32, ConversionPatternRewriter &rewriter,
                   Location loc) const {
     auto *ctx = rewriter.getContext();
 
-    SmallVector<Value> outVals(inVals.size() * 2);
-    for (int i = 0; i < inVals.size(); ++i) {
-      outVals[2 * i] = trunc(i16_ty, and_(inVals[i], i16_val(0xFFFF)));
-      outVals[2 * i + 1] = trunc(i16_ty, lshr(inVals[i], i32_val(16)));
+    SmallVector<Value> inVals(inVals32.size() * 2);
+    for (int i = 0; i < inVals32.size(); ++i) {
+      inVals[2 * i] = trunc(i16_ty, and_(inVals32[i], i32_val(0x0000FFFF)));
+      inVals[2 * i + 1] = trunc(i16_ty, lshr(inVals32[i], i32_val(16)));
     }
-    return outVals;
+    return inVals;
   }
 
   LogicalResult
@@ -532,6 +532,10 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       } else if (isPtr) {
         inVals[it.index()] = ptrtoint(llvmElemTy, it.value());
       }
+    }
+
+    if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
+      inVals = unpackI32s(inVals, rewriter, loc);
     }
 
     auto srcLayoutWithinBlock = getLayoutWithinBlock(srcLayout);
