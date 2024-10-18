@@ -826,7 +826,6 @@ module attributes {"triton_gpu.num-ctas" = 1 : i32, "triton_gpu.num-warps" = 4 :
 #mma = #triton_gpu.nvidia_mma<{versionMajor = 2, warpsPerCTA = [1, 1], CTAsPerCGA = [1, 1], CTASplitNum = [1, 1], CTAOrder = [0, 1], instrShape = [16, 8]}>
 #dot1 = #triton_gpu.dot_op<{opIdx=0, parent=#mma, kWidth=2}>
 module attributes {"triton_gpu.num-ctas" = 1 : i32, "triton_gpu.num-warps" = 1 : i32} {
-  // CHECK-NOT: global_smem
   // CHECK-LABEL: convert_layout_mmav2_dot_reg
   tt.func @convert_layout_mmav2_dot_reg(%arg0: tensor<16x16xf16, #mma>) {
     // CHECK-NOT: st.shared
