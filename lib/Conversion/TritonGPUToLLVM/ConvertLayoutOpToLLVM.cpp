@@ -391,8 +391,12 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     auto inVals = unpackLLElements(loc, adaptor.getSrc(), rewriter);
     SmallVector<Value> outVals;
     outVals.resize(dstLayout.getInDimSize(kRegister));
+    auto masks = dstLayout.getFreeVariableMasks()[kRegister];
     for (int i = 0; i < dstLayout.getInDimSize(kRegister); i++) {
-      auto srcIdx = dstToSrc->apply({{kRegister, i}});
+      // Remove free masks from the register index
+      // For example, if idx = 0b11100, and masks = 0b00100, then we get 0b11000
+      auto idx = i & (~masks);
+      auto srcIdx = dstToSrc->apply({{kRegister, idx}});
       outVals[i] = inVals[srcIdx.begin()->second];
     }
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,
