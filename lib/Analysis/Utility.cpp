@@ -711,6 +711,7 @@ bool cvtNeedsSharedMemory(RankedTensorType srcTy, RankedTensorType dstTy) {
   // supported yet in Triton's backend.
   return !cvtReordersRegisters(srcTy, dstTy) &&
          !isBlockedToDotShortcut(srcTy, dstTy) &&
+         !matchMmaV3AndDotOperandLayout(srcTy, dstTy) &&
          !isMfmaToDotShortcut(srcTy, dstTy);
 }
 
