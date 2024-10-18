@@ -319,6 +319,33 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
                                       rewriter); // Case 3 and 4
   }
 
+  auto packI32s(ArrayRef<Value> outVals, ConversionPatternRewriter &rewriter,
+                Location loc) const {
+    auto *ctx = rewriter.getContext();
+    auto concat = [&](Value a, Value b) {
+      return or_(zext(i32_ty, bitcast(a, i16_ty)),
+                 shl(zext(i32_ty, bitcast(b, i16_ty)), i32_val(16)));
+    };
+
+    SmallVector<Value> outVals32(outVals.size() / 2);
+    for (int i = 0; i < outVals32.size(); ++i) {
+      outVals32[i] = concat(outVals[2 * i], outVals[2 * i + 1]);
+    }
+    return outVals32;
+  }
+
+  auto unpackI32s(ArrayRef<Value> inVals, ConversionPatternRewriter &rewriter,
+                  Location loc) const {
+    auto *ctx = rewriter.getContext();
+
+    SmallVector<Value> outVals(inVals.size() * 2);
+    for (int i = 0; i < inVals.size(); ++i) {
+      outVals[2 * i] = trunc(i16_ty, and_(inVals[i], i16_val(0xFFFF)));
+      outVals[2 * i + 1] = trunc(i16_ty, lshr(inVals[i], i32_val(16)));
+    }
+    return outVals;
+  }
+
   LogicalResult
   transferWithinThread(ConvertLayoutOp op, const LinearLayout &srcLayout,
                        const LinearLayout &dstLayout, OpAdaptor adaptor,
@@ -389,6 +416,9 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
            ArrayRef{kRegister});
 
     auto inVals = unpackLLElements(loc, adaptor.getSrc(), rewriter);
+    if (isa<DotOperandEncodingAttr>(op.getType().getEncoding())) {
+      inVals = unpackI32s(inVals, rewriter, loc);
+    }
     SmallVector<Value> outVals;
     outVals.resize(dstLayout.getInDimSize(kRegister));
     auto masks = dstLayout.getFreeVariableMasks()[kRegister];
@@ -398,6 +428,10 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       auto idx = i & (~masks);
       auto srcIdx = dstToSrc->apply({{kRegister, idx}});
       outVals[i] = inVals[srcIdx.begin()->second];
+    }
+    // FIXME [Dot LL]
+    if (isa<DotOperandEncodingAttr>(op.getType().getEncoding())) {
+      outVals = packI32s(outVals, rewriter, loc);
     }
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,
                                   op.getType());
@@ -519,16 +553,7 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // We know it's just for largeKWidth case in Ampere
     // In this case, we need to pack the outputs into i32
     if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
-      auto concat = [&](Value a, Value b) {
-        return or_(zext(i32_ty, bitcast(a, i16_ty)),
-                   shl(zext(i32_ty, bitcast(b, i16_ty)), i32_val(16)));
-      };
-
-      SmallVector<Value> outVals32(outVals.size() / 2);
-      for (int i = 0; i < outVals32.size(); ++i) {
-        outVals32[i] = concat(outVals[2 * i], outVals[2 * i + 1]);
-      }
-      outVals = outVals32;
+      outVals = packI32s(outVals, rewriter, loc);
     }
 
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,
