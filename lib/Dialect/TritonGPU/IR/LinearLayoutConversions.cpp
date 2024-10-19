@@ -555,8 +555,8 @@ AMDMfmaEncodingAttr::toLinearLayout(ArrayRef<int64_t> shape) const {
 }
 
 std::optional<LinearLayout>
-dotOperandMfmaToLinearLayout(DotOperandEncodingAttr dotMfmaLayout,
-                             ArrayRef<int64_t> shape) {
+mfmaDotToLinearLayout(DotOperandEncodingAttr dotMfmaLayout,
+                      ArrayRef<int64_t> shape) {
 
   // Current linear layout conversion for dot operand is only necessary to
   // enable LDS bypass for operand B in the MFMA dot path. To achieve
@@ -885,9 +885,11 @@ LinearLayout ampereDotToLinearLayout(ArrayRef<int64_t> shape,
 std::optional<LinearLayout>
 DotOperandEncodingAttr::toLinearLayout(ArrayRef<int64_t> shape) const {
   if (auto mfmaLayout = llvm::dyn_cast<AMDMfmaEncodingAttr>(getParent())) {
-    return dotOperandMfmaToLinearLayout(*this, shape);
+    return mfmaDotToLinearLayout(*this, shape);
   } else if (auto mma = mlir::dyn_cast<NvidiaMmaEncodingAttr>(getParent())) {
-    return ampereDotToLinearLayout(shape, *this);
+    if (mma.getVersionMajor() == 2 && mma.getVersionMinor() == 0) {
+      return ampereDotToLinearLayout(shape, *this);
+    }
   }
   return std::nullopt;
 }
