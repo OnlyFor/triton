@@ -660,9 +660,9 @@ bool cvtReordersRegisters(RankedTensorType srcTy, RankedTensorType dstTy) {
     auto regSize =
         std::max(srcLayout->getInDimSize(kReg), dstLayout->getInDimSize(kReg));
     auto srcWithFree = srcLayout->addFreeVariables(
-        kReg, std::abs(regSize - srcLayout->getInDimSize(kReg)));
+        kReg, llvm::Log2_32(std::abs(regSize - srcLayout->getInDimSize(kReg))));
     auto dstWithFree = dstLayout->addFreeVariables(
-        kReg, std::abs(regSize - dstLayout->getInDimSize(kReg)));
+        kReg, llvm::Log2_32(std::abs(regSize - dstLayout->getInDimSize(kReg))));
     LinearLayout comp = srcWithFree.invertAndCompose(dstWithFree);
     // TODO(jlebar): These checks are overly-restrictive.  For example, we can
     // transfer by shuffling registers (case 1) if and only if all of the bases

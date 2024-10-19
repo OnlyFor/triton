@@ -433,9 +433,11 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     auto regSize = std::max(srcLayout.getInDimSize(kRegister),
                             dstLayout.getInDimSize(kRegister));
     auto srcLayoutFreeRegs = srcLayout.addFreeVariables(
-        kRegister, std::abs(regSize - srcLayout.getInDimSize(kRegister)));
+        kRegister,
+        llvm::Log2_32(std::abs(regSize - srcLayout.getInDimSize(kRegister))));
     auto dstLayoutFreeRegs = dstLayout.addFreeVariables(
-        kRegister, std::abs(regSize - dstLayout.getInDimSize(kRegister)));
+        kRegister,
+        llvm::Log2_32(std::abs(regSize - dstLayout.getInDimSize(kRegister))));
     LinearLayout conversion =
         dstLayoutFreeRegs.invertAndCompose(srcLayoutFreeRegs);
     auto dstToSrc = conversion.divideRight(
