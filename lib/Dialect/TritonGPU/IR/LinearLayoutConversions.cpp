@@ -884,9 +884,10 @@ LinearLayout ampereDotToLinearLayout(ArrayRef<int64_t> shape,
 
 std::optional<LinearLayout>
 DotOperandEncodingAttr::toLinearLayout(ArrayRef<int64_t> shape) const {
-  if (auto mfmaLayout = llvm::dyn_cast<AMDMfmaEncodingAttr>(getParent())) {
+  auto parent = getParent();
+  if (auto mfmaLayout = llvm::dyn_cast<AMDMfmaEncodingAttr>(parent)) {
     return mfmaDotToLinearLayout(*this, shape);
-  } else if (auto mma = mlir::dyn_cast<NvidiaMmaEncodingAttr>(getParent())) {
+  } else if (auto mma = mlir::dyn_cast<NvidiaMmaEncodingAttr>(parent)) {
     if (mma.getVersionMajor() == 2 && mma.getVersionMinor() == 0) {
       return ampereDotToLinearLayout(shape, *this);
     }
