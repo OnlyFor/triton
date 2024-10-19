@@ -112,8 +112,8 @@ ValueTableV2 getValuesFromDotOperandLayoutStruct(
     for (auto i = 0; i < n0; ++i) {
       for (auto j = 0; j < n1; j++) {
         vals[{b, 2 * i, 2 * j}] = elems[offset++];
-        vals[{b, 2 * i, 2 * j + 1}] = elems[offset++];
-        vals[{b, 2 * i + 1, 2 * j}] = elems[offset++];
+        vals[{b, 2 * i, 2 * j}] = elems[offset++];
+        vals[{b, 2 * i + 1, 2 * j + 1}] = elems[offset++];
         vals[{b, 2 * i + 1, 2 * j + 1}] = elems[offset++];
       }
     }
