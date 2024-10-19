@@ -876,7 +876,7 @@ LinearLayout ampereDotToLinearLayout(ArrayRef<int64_t> shape,
       llvm::to_vector(llvm::reverse(ArrayRef(dimNames).take_back(2))));
 
   auto order = dot.getCTAOrder();
-  assert(order[0] == 1 && order[1] == 0);
+  assert(order[0] == rank - 1 && order[1] == rank - 2);
   ctaLayout *= identityND(S("warp"), dot.getWarpsPerCTA(), order, dimNames);
 
   return combineCtaCgaWithShape(ctaLayout, mma.getCTALayout(), shape);
