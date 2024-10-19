@@ -319,29 +319,62 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
                                       rewriter); // Case 3 and 4
   }
 
-  auto packI32s(ArrayRef<Value> outVals, ConversionPatternRewriter &rewriter,
-                Location loc) const {
+  auto packI32s(ArrayRef<Value> outVals, Type type,
+                ConversionPatternRewriter &rewriter, Location loc) const {
+    auto bitwidth = type.getIntOrFloatBitWidth();
+    assert(bitwidth <= 32 && "only support packing i32s");
+    auto numPackElements = 32 / bitwidth;
     auto *ctx = rewriter.getContext();
-    auto concat = [&](Value a, Value b) {
+    auto concat16 = [&](Value a, Value b) {
       return or_(zext(i32_ty, bitcast(a, i16_ty)),
                  shl(zext(i32_ty, bitcast(b, i16_ty)), i32_val(16)));
     };
 
-    SmallVector<Value> outVals32(outVals.size() / 2);
+    auto concat8 = [&](Value a, Value b, Value c, Value d) {
+      return or_(or_(zext(i32_ty, bitcast(a, i8_ty)),
+                     shl(zext(i32_ty, bitcast(b, i8_ty)), i32_val(8))),
+                 or_(shl(zext(i32_ty, bitcast(c, i8_ty)), i32_val(16)),
+                     shl(zext(i32_ty, bitcast(d, i8_ty)), i32_val(24))));
+    };
+
+    SmallVector<Value> outVals32(outVals.size() / numPackElements);
     for (int i = 0; i < outVals32.size(); ++i) {
-      outVals32[i] = concat(outVals[2 * i], outVals[2 * i + 1]);
+      if (numPackElements == 1) {
+        outVals32[i] = outVals[i];
+      } else if (numPackElements == 2) {
+        outVals32[i] = concat16(outVals[2 * i], outVals[2 * i + 1]);
+      } else if (numPackElements == 4) {
+        outVals32[i] = concat8(outVals[4 * i], outVals[4 * i + 1],
+                               outVals[4 * i + 2], outVals[4 * i + 3]);
+      } else {
+        llvm_unreachable("unsupported packing");
+      }
     }
     return outVals32;
   }
 
-  auto unpackI32s(ArrayRef<Value> inVals32, ConversionPatternRewriter &rewriter,
-                  Location loc) const {
+  auto unpackI32s(ArrayRef<Value> inVals32, Type type,
+                  ConversionPatternRewriter &rewriter, Location loc) const {
     auto *ctx = rewriter.getContext();
+    auto bitwidth = type.getIntOrFloatBitWidth();
+    assert(bitwidth <= 32 && "only support packing i32s");
+    auto numPackElements = 32 / bitwidth;
 
-    SmallVector<Value> inVals(inVals32.size() * 2);
+    SmallVector<Value> inVals(inVals32.size() * numPackElements);
     for (int i = 0; i < inVals32.size(); ++i) {
-      inVals[2 * i] = trunc(i16_ty, and_(inVals32[i], i32_val(0x0000FFFF)));
-      inVals[2 * i + 1] = trunc(i16_ty, lshr(inVals32[i], i32_val(16)));
+      if (numPackElements == 1) {
+        inVals[i] = inVals32[i];
+      } else if (numPackElements == 2) {
+        inVals[2 * i] = trunc(i16_ty, and_(inVals32[i], i32_val(0x0000FFFF)));
+        inVals[2 * i + 1] = trunc(i16_ty, lshr(inVals32[i], i32_val(16)));
+      } else if (numPackElements == 4) {
+        inVals[4 * i] = trunc(i8_ty, and_(inVals32[i], i32_val(0x000000FF)));
+        inVals[4 * i + 1] = trunc(i8_ty, lshr(inVals32[i], i32_val(8)));
+        inVals[4 * i + 2] = trunc(i8_ty, lshr(inVals32[i], i32_val(16)));
+        inVals[4 * i + 3] = trunc(i8_ty, lshr(inVals32[i], i32_val(24)));
+      } else {
+        llvm_unreachable("unsupported packing");
+      }
     }
     return inVals;
   }
@@ -399,8 +432,8 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // ensuring consistency in the composition process.
     auto regSize = std::max(srcLayout.getInDimSize(kRegister),
                             dstLayout.getInDimSize(kRegister));
-    auto dstLayoutFreeRegs = dstLayout.resize(kRegister, regSize);
-    auto srcLayoutFreeRegs = srcLayout.resize(kRegister, regSize);
+    auto dstLayoutFreeRegs = dstLayout.addFreeVariables(kRegister, regSize);
+    auto srcLayoutFreeRegs = srcLayout.addFreeVariables(kRegister, regSize);
     LinearLayout conversion =
         dstLayoutFreeRegs.invertAndCompose(srcLayoutFreeRegs);
     auto dstToSrc = conversion.divideRight(
@@ -415,9 +448,11 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     assert(ArrayRef(to_vector(dstToSrc->getOutDimNames())) ==
            ArrayRef{kRegister});
 
+    auto srcTy = op.getSrc().getType();
+    auto dstTy = op.getType();
     auto inVals = unpackLLElements(loc, adaptor.getSrc(), rewriter);
-    if (isa<DotOperandEncodingAttr>(op.getType().getEncoding())) {
-      inVals = unpackI32s(inVals, rewriter, loc);
+    if (isa<DotOperandEncodingAttr>(srcTy.getEncoding())) {
+      inVals = unpackI32s(inVals, srcTy.getElementType(), rewriter, loc);
     }
     SmallVector<Value> outVals;
     outVals.resize(dstLayout.getInDimSize(kRegister));
@@ -430,8 +465,8 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       outVals[i] = inVals[srcIdx.begin()->second];
     }
     // FIXME [Dot LL]
-    if (isa<DotOperandEncodingAttr>(op.getType().getEncoding())) {
-      outVals = packI32s(outVals, rewriter, loc);
+    if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
+      outVals = packI32s(outVals, dstTy.getElementType(), rewriter, loc);
     }
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,
                                   op.getType());
@@ -534,8 +569,8 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       }
     }
 
-    if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
-      inVals = unpackI32s(inVals, rewriter, loc);
+    if (isa<DotOperandEncodingAttr>(srcTy.getEncoding())) {
+      inVals = unpackI32s(inVals, srcTy.getElementType(), rewriter, loc);
     }
 
     auto srcLayoutWithinBlock = getLayoutWithinBlock(srcLayout);
@@ -557,7 +592,7 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // We know it's just for largeKWidth case in Ampere
     // In this case, we need to pack the outputs into i32
     if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
-      outVals = packI32s(outVals, rewriter, loc);
+      outVals = packI32s(outVals, dstTy.getElementType(), rewriter, loc);
     }
 
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,

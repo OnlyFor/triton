@@ -796,7 +796,7 @@ TEST_F(LinearLayoutTest, Resize) {
           {S("in2"), {}},
       },
       {S("dim0"), S("dim1")});
-  EXPECT_EQ(init.resize(S("in0"), 3),
+  EXPECT_EQ(init.addFreeVariables(S("in0"), 3),
             LinearLayout(
                 {
                     {S("in0"), {{0, 1}, {0, 2}, {0, 0}}},
@@ -804,14 +804,15 @@ TEST_F(LinearLayoutTest, Resize) {
                     {S("in2"), {}},
                 },
                 {S("dim0"), S("dim1")}));
-  EXPECT_EQ(init.resize(S("in0"), 2), LinearLayout(
-                                          {
-                                              {S("in0"), {{0, 1}, {0, 2}}},
-                                              {S("in1"), {{1, 0}, {2, 0}}},
-                                              {S("in2"), {}},
-                                          },
-                                          {S("dim0"), S("dim1")}));
-  EXPECT_EQ(init.resize(S("in1"), 3),
+  EXPECT_EQ(init.addFreeVariables(S("in0"), 2),
+            LinearLayout(
+                {
+                    {S("in0"), {{0, 1}, {0, 2}}},
+                    {S("in1"), {{1, 0}, {2, 0}}},
+                    {S("in2"), {}},
+                },
+                {S("dim0"), S("dim1")}));
+  EXPECT_EQ(init.addFreeVariables(S("in1"), 3),
             LinearLayout(
                 {
                     {S("in0"), {{0, 1}, {0, 2}}},

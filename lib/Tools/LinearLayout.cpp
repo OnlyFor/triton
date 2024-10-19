@@ -1053,7 +1053,8 @@ LinearLayout::getFreeVariableMasks() const {
   return ret;
 }
 
-LinearLayout LinearLayout::resize(StringAttr inDim, int32_t size) const {
+LinearLayout LinearLayout::addFreeVariables(StringAttr inDim,
+                                            int32_t size) const {
   BasesT bases = getBases();
   assert(bases.contains(inDim));
   auto inDimSize = getInDimSizeLog2(inDim);
