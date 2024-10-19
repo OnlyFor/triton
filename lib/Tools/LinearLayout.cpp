@@ -1054,11 +1054,10 @@ LinearLayout::getFreeVariableMasks() const {
 }
 
 LinearLayout LinearLayout::addFreeVariables(StringAttr inDim,
-                                            int32_t size) const {
+                                            int32_t numFreeVariables) const {
   BasesT bases = getBases();
   assert(bases.contains(inDim));
-  auto inDimSize = getInDimSizeLog2(inDim);
-  for (int i = inDimSize; i < llvm::Log2_32(size); i++) {
+  for (int i = 0; i < numFreeVariables; i++) {
     bases[inDim].push_back(std::vector<int32_t>(getNumOutDims(), 0));
   }
   return LinearLayout(std::move(bases), llvm::to_vector(getOutDimNames()));

@@ -432,8 +432,10 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // ensuring consistency in the composition process.
     auto regSize = std::max(srcLayout.getInDimSize(kRegister),
                             dstLayout.getInDimSize(kRegister));
-    auto dstLayoutFreeRegs = dstLayout.addFreeVariables(kRegister, regSize);
-    auto srcLayoutFreeRegs = srcLayout.addFreeVariables(kRegister, regSize);
+    auto srcLayoutFreeRegs = srcLayout.addFreeVariables(
+        kRegister, std::abs(regSize - srcLayout.getInDimSize(kRegister)));
+    auto dstLayoutFreeRegs = dstLayout.addFreeVariables(
+        kRegister, std::abs(regSize - dstLayout.getInDimSize(kRegister)));
     LinearLayout conversion =
         dstLayoutFreeRegs.invertAndCompose(srcLayoutFreeRegs);
     auto dstToSrc = conversion.divideRight(

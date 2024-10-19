@@ -788,7 +788,7 @@ TEST_F(LinearLayoutTest, FreeVariableMasks) {
             AR({{S("in1"), 0b100}, {S("in2"), 0b10}}));
 }
 
-TEST_F(LinearLayoutTest, Resize) {
+TEST_F(LinearLayoutTest, AddFreeVariables) {
   auto init = LinearLayout(
       {
           {S("in0"), {{0, 1}, {0, 2}}},
@@ -796,7 +796,7 @@ TEST_F(LinearLayoutTest, Resize) {
           {S("in2"), {}},
       },
       {S("dim0"), S("dim1")});
-  EXPECT_EQ(init.addFreeVariables(S("in0"), 3),
+  EXPECT_EQ(init.addFreeVariables(S("in0"), 1),
             LinearLayout(
                 {
                     {S("in0"), {{0, 1}, {0, 2}, {0, 0}}},
@@ -804,7 +804,7 @@ TEST_F(LinearLayoutTest, Resize) {
                     {S("in2"), {}},
                 },
                 {S("dim0"), S("dim1")}));
-  EXPECT_EQ(init.addFreeVariables(S("in0"), 2),
+  EXPECT_EQ(init.addFreeVariables(S("in0"), 0),
             LinearLayout(
                 {
                     {S("in0"), {{0, 1}, {0, 2}}},
@@ -812,7 +812,7 @@ TEST_F(LinearLayoutTest, Resize) {
                     {S("in2"), {}},
                 },
                 {S("dim0"), S("dim1")}));
-  EXPECT_EQ(init.addFreeVariables(S("in1"), 3),
+  EXPECT_EQ(init.addFreeVariables(S("in1"), 1),
             LinearLayout(
                 {
                     {S("in0"), {{0, 1}, {0, 2}}},

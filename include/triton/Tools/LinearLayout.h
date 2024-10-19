@@ -688,7 +688,8 @@ public:
   // (i.e. every input bit affects the output).
   llvm::MapVector<StringAttr, int32_t> getFreeVariableMasks() const;
 
-  LinearLayout addFreeVariables(StringAttr inDim, int32_t size) const;
+  LinearLayout addFreeVariables(StringAttr inDim,
+                                int32_t numFreeVariables) const;
 
   std::string toString() const;
 
