@@ -75,9 +75,22 @@ ValueTableV2 getValuesFromDotOperandLayoutStruct(
 
     // For kWidth = 8, split the mma into 4 mmas with "stride 4" along K
     if (dot.getOpIdx() == 0) {
-      si = llvm::SmallVector<unsigned>{0, 8,  4, 12, 1, 9,  5, 13,
-                                       2, 10, 6, 14, 3, 11, 7, 15};
+      // 0     1      2      3    8    9     10     11
+      // [0-1][2-3], [4-5][6-7], [8-9][10-11], [12-13][14-15]
+      // 4     5      6      7   12   13    14     15
+      // [16-17][18-19], [20-21][22-23], [24-25][26-27], [28-29][30-31]
+      si = llvm::SmallVector<unsigned>{0, 4, 8,  12, 1, 5, 9,  13,
+                                       2, 6, 10, 14, 3, 7, 11, 15};
     } else {
+      // 0[0-1]
+      // 1[2-3],
+      // 2[4-5],
+      // 3[6-7],
+      //
+      // 4[8-9],
+      // 5[10-11],
+      // 6[12-13],
+      // 7[14-15]
       si = llvm::SmallVector<unsigned>{0, 4, 1, 5, 2, 6, 3, 7};
     }
 
