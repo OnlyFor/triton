@@ -656,11 +656,14 @@ bool cvtReordersRegisters(RankedTensorType srcTy, RankedTensorType dstTy) {
         srcLayout->getInDimSize(kBlock) != dstLayout->getInDimSize(kBlock)) {
       return false;
     }
-    // comp describes the layout function for converting from src to dst.
+    // We need to ensure that the number of registers is the same in the source
+    // and destination layouts.  We do this by padding the smaller layout with
+    // extra registers.
     auto regSize =
         std::max(srcLayout->getInDimSize(kReg), dstLayout->getInDimSize(kReg));
     auto srcLayoutWithFreeReg = srcLayout->resize(kReg, regSize);
     auto dstLayoutWithFreeReg = dstLayout->resize(kReg, regSize);
+    // comp describes the layout function for converting from src to dst.
     LinearLayout comp =
         srcLayoutWithFreeReg.invertAndCompose(dstLayoutWithFreeReg);
     // TODO(jlebar): These checks are overly-restrictive.  For example, we can
