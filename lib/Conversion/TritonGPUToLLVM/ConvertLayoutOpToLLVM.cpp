@@ -274,6 +274,40 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       : ConvertOpToLLVMPattern(typeConverter, benefit), targetInfo(targetInfo) {
   }
 
+  // For some reasons, LLVM's NVPTX backend inserts unnecessary (?) integer
+  // instructions to pack & unpack sub-word integers.  A workaround is to
+  // store the results of tensors with dot operand encodings in i32 to
+  // facilitate instructions such as `ldmatrix`.
+  //
+  // TODO: Confirm if the problem is still there.
+  SmallVector<Value> unpackSrc(const SmallVector<Value> &inValues,
+                               RankedTensorType srcTy,
+                               ConversionPatternRewriter &rewriter,
+                               Location loc) const {
+    auto srcLayout = srcTy.getEncoding();
+    if (auto dotOpEnc = dyn_cast<DotOperandEncodingAttr>(srcLayout)) {
+      auto mmaEnc = cast<NvidiaMmaEncodingAttr>(dotOpEnc.getParent());
+      if (mmaEnc && mmaEnc.getVersionMajor() < 3) {
+        return unpackI32(inValues, srcTy.getElementType(), rewriter, loc);
+      }
+    }
+    return inValues;
+  }
+
+  SmallVector<Value> packDst(const SmallVector<Value> &inValues,
+                             RankedTensorType dstTy,
+                             ConversionPatternRewriter &rewriter,
+                             Location loc) const {
+    auto dstLayout = dstTy.getEncoding();
+    if (auto dotOpEnc = dyn_cast<DotOperandEncodingAttr>(dstLayout)) {
+      auto mmaEnc = cast<NvidiaMmaEncodingAttr>(dotOpEnc.getParent());
+      if (mmaEnc && mmaEnc.getVersionMajor() < 3) {
+        return packI32(inValues, dstTy.getElementType(), rewriter, loc);
+      }
+    }
+    return inValues;
+  }
+
   LogicalResult
   matchAndRewrite(ConvertLayoutOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
@@ -391,23 +425,20 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     auto srcTy = op.getSrc().getType();
     auto dstTy = op.getType();
     auto inVals = unpackLLElements(loc, adaptor.getSrc(), rewriter);
-    if (isa<DotOperandEncodingAttr>(srcTy.getEncoding())) {
-      inVals = unpackI32(inVals, srcTy.getElementType(), rewriter, loc);
-    }
+    inVals = unpackSrc(inVals, srcTy, rewriter, loc);
     SmallVector<Value> outVals;
     outVals.resize(dstLayout.getInDimSize(kRegister));
     auto masks = dstLayout.getFreeVariableMasks()[kRegister];
     for (int i = 0; i < dstLayout.getInDimSize(kRegister); i++) {
       // Remove free masks from the register index
-      // For example, if idx = 0b11100, and masks = 0b00100, then we get 0b11000
+      // For example, if idx = 0b00111, and masks = 0b00100, then we get
+      // 0b00011. It means that register 7 (0b111) has the same value as
+      // register 3 (0b011).
       auto idx = i & (~masks);
       auto srcIdx = dstToSrc->apply({{kRegister, idx}});
       outVals[i] = inVals[srcIdx.begin()->second];
     }
-    // FIXME [Dot LL]
-    if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
-      outVals = packI32(inVals, dstTy.getElementType(), rewriter, loc);
-    }
+    outVals = packDst(outVals, dstTy, rewriter, loc);
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,
                                   op.getType());
     rewriter.replaceOp(op, result);
@@ -508,10 +539,7 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
         inVals[it.index()] = ptrtoint(llvmElemTy, it.value());
       }
     }
-
-    if (isa<DotOperandEncodingAttr>(srcTy.getEncoding())) {
-      inVals = unpackI32(inVals, srcTy.getElementType(), rewriter, loc);
-    }
+    inVals = unpackSrc(inVals, srcTy, rewriter, loc);
 
     auto srcLayoutWithinBlock = getLayoutWithinBlock(srcLayout);
     auto dstLayoutWithinBlock = getLayoutWithinBlock(dstLayout);
@@ -528,13 +556,7 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
       }
     }
 
-    // FIXME [Dot LL]
-    // We know it's just for largeKWidth case in Ampere
-    // In this case, we need to pack the outputs into i32
-    if (isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
-      outVals = packI32(outVals, dstTy.getElementType(), rewriter, loc);
-    }
-
+    outVals = packDst(outVals, dstTy, rewriter, loc);
     Value result = packLLElements(loc, getTypeConverter(), outVals, rewriter,
                                   op.getType());
     rewriter.replaceOp(op, result);
