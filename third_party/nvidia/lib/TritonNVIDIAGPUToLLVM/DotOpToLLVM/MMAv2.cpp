@@ -75,22 +75,39 @@ ValueTableV2 getValuesFromDotOperandLayoutStruct(
 
     // For kWidth = 8, split the mma into 4 mmas with "stride 4" along K
     if (dot.getOpIdx() == 0) {
-      // 0     1      2      3    8    9     10     11
-      // [0-1][2-3], [4-5][6-7], [8-9][10-11], [12-13][14-15]
-      // 4     5      6      7   12   13    14     15
-      // [16-17][18-19], [20-21][22-23], [24-25][26-27], [28-29][30-31]
+      // Original register layout:
+      //
+      //   [0, 1, 2, 3], [8, 9, 10, 11]
+      //   [4, 5, 6, 7], [12, 13, 14, 15]
+      //
+      // Each element in the layout consists of two bf16 values.
+      // For example, the row [0, 1, 2, 3] expands to:
+      //
+      //   [[0/0, 0/1], [1/0, 1/1], [2/0, 2/1], [3/0, 3/1]]
+      //
+      // Here, 0/0 refers to the first half of element 0, and 0/1 refers to the
+      // second half, matching kWidth = 8.
+      //
+      // To derive four independent MMA operations, a stride of 4 is applied to
+      // the original register layout:
+      //
+      //   1st MMA: [0, 4, 8, 12]
+      //   2nd MMA: [1, 5, 9, 13]
+      //   3rd MMA: [2, 6, 10, 14]
+      //   4th MMA: [3, 7, 11, 15]
       si = llvm::SmallVector<unsigned>{0, 4, 8,  12, 1, 5, 9,  13,
                                        2, 6, 10, 14, 3, 7, 11, 15};
     } else {
-      // 0[0-1]
-      // 1[2-3],
-      // 2[4-5],
-      // 3[6-7],
+      // Original register layout:
       //
-      // 4[8-9],
-      // 5[10-11],
-      // 6[12-13],
-      // 7[14-15]
+      //   [0, 1, 2, 3]^T, [4, 5, 6, 7]^T
+      //
+      // A stride of 4 is applied to derive four independent MMA operations:
+      //
+      //   1st MMA: [0, 4]
+      //   2nd MMA: [1, 5]
+      //   3rd MMA: [2, 6]
+      //   4th MMA: [3, 7]
       si = llvm::SmallVector<unsigned>{0, 4, 1, 5, 2, 6, 3, 7};
     }
 
