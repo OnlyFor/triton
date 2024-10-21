@@ -43,15 +43,18 @@ SmallVector<Value> reorderValues(const SmallVector<Value> &values, Type inType,
   if (inBitWidth == 16 && ouBitWidth == 32) {
     SmallVector<Value> ret;
     for (unsigned i = 0; i < values.size(); i += 8) {
-      // Register layout:
-      //   [1, 2], [5, 6]  ⟶  [1], [2], [5], [6]
-      //   [3, 4], [7, 8]      [3], [4], [7], [8]
+      // Register layout conversion:
+      //
+      //   [0, 1], [4, 5]  ⟶  [0], [1], [4], [5]
+      //   [2, 3], [6, 7]      [2], [3], [6], [7]
 
       // Original access order:
-      //   ⟦[1, 2], [3, 4], [5, 6], [7, 8]⟧
+      //
+      //   [0, 1], [2, 3], [4, 5], [6, 7]
 
       // Transformed access order:
-      //   ⟦[1], [3], [2], [4], [5], [7], [6], [8]⟧
+      //
+      //   [0], [2], [1], [3], [4], [6], [5], [7]
       ret.push_back(values[i]);
       ret.push_back(values[i + 3]);
       ret.push_back(values[i + 2]);
@@ -64,15 +67,18 @@ SmallVector<Value> reorderValues(const SmallVector<Value> &values, Type inType,
     return ret;
   }
   if (inBitWidth == 8 && ouBitWidth == 16) {
-    // Register layout:
-    //   [1, 2, 3, 4], [9, 10, 11, 12]  ⟶  [1, 2], [3, 4], [9, 10], [11, 12]
-    //   [5, 6, 7, 8], [13, 14, 15, 16]     [5, 6], [7, 8], [13, 14], [15, 16]
+    // Register layout conversion:
+    //
+    //   [0, 1, 2, 3], [8, 9, 10, 11]  ⟶  [0, 1], [2, 3], [8, 9], [10, 11]
+    //   [4, 5, 6, 7], [12, 13, 14, 15]    [4, 5], [6, 7], [12, 13], [14, 15]
     //
     // Original access order:
-    //   ⟦[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]⟧
+    //
+    //   [0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]
     //
     // Transformed access order:
-    //   ⟦[1, 2], [5, 6], [3, 4], [7, 8], [9, 10], [13, 14], [11, 12], [15, 16]⟧
+    //
+    //   [0, 1], [4, 5], [2, 3], [6, 7], [8, 9], [12, 13], [10, 11], [14, 15]
     SmallVector<Value> ret;
     for (unsigned i = 0; i < values.size(); i += 16) {
       ret.push_back(values[i + 0]);
