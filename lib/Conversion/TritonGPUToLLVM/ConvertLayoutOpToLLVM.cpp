@@ -398,7 +398,7 @@ struct ConvertLayoutOpUsingLinearLayoutsConversion
     // variable in registers, and the `(n + 2)`-th row represents the free
     // variable in lanes.  However, the `(n + 1)`-th row added by `srcLayout`
     // represents the free variable in lanes.  As a result, the `(n + 1)`-th row
-    // in two layouts does not correspond to the same free variable.
+    // in two layouts do not correspond to the same free variable.
     //
     // To address this issue, we pad the free variables in `srcLayout` and
     // `dstLayout` to ensure they have the same number of registers.  This
