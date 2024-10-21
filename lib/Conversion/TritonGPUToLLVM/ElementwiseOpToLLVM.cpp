@@ -106,17 +106,8 @@ SmallVector<Value> unpackI32(const SmallVector<Value> &inValues, Type srcTy,
   auto encoding = dyn_cast<DotOperandEncodingAttr>(tensorTy.getEncoding());
   if (!(encoding && isa<NvidiaMmaEncodingAttr>(encoding.getParent())))
     return inValues;
-  SmallVector<Value> outValues;
-  for (auto v : inValues) {
-    // cast i32 to appropriate eltType vector and extract elements
-    auto eltType = typeConverter->convertType(tensorTy.getElementType());
-    auto vecType = vec_ty(eltType, 32 / eltType.getIntOrFloatBitWidth());
-    auto vec = bitcast(v, vecType);
-    for (int i = 0; i < 32 / eltType.getIntOrFloatBitWidth(); i++) {
-      outValues.push_back(extract_element(vec, i32_val(i)));
-    }
-  }
-  return outValues;
+  auto eltTy = typeConverter->convertType(tensorTy.getElementType());
+  return unpackI32(inValues, eltTy, rewriter, loc);
 }
 
 SmallVector<Value> packI32(const SmallVector<Value> &inValues, Type srcTy,
@@ -128,18 +119,8 @@ SmallVector<Value> packI32(const SmallVector<Value> &inValues, Type srcTy,
   auto encoding = dyn_cast<DotOperandEncodingAttr>(tensorTy.getEncoding());
   if (!(encoding && isa<NvidiaMmaEncodingAttr>(encoding.getParent())))
     return inValues;
-  SmallVector<Value> outValues;
   auto eltType = typeConverter->convertType(tensorTy.getElementType());
-  int vecWidth = 32 / eltType.getIntOrFloatBitWidth();
-  auto vecType = vec_ty(eltType, vecWidth);
-  for (int i = 0; i < inValues.size(); i += vecWidth) {
-    Value vec = undef(vecType);
-    for (int j = 0; j < vecWidth; j++) {
-      vec = insert_element(vec, inValues[i + j], i32_val(j));
-    }
-    outValues.push_back(bitcast(vec, i32_ty));
-  }
-  return outValues;
+  return packI32(inValues, eltType, rewriter, loc);
 }
 
 int getNumElementsPerThreads(Type type,

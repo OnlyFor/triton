@@ -659,10 +659,8 @@ bool cvtReordersRegisters(RankedTensorType srcTy, RankedTensorType dstTy) {
     // comp describes the layout function for converting from src to dst.
     auto regSize =
         std::max(srcLayout->getInDimSize(kReg), dstLayout->getInDimSize(kReg));
-    auto srcWithFree = srcLayout->addFreeVariables(
-        kReg, llvm::Log2_32(std::abs(regSize - srcLayout->getInDimSize(kReg))));
-    auto dstWithFree = dstLayout->addFreeVariables(
-        kReg, llvm::Log2_32(std::abs(regSize - dstLayout->getInDimSize(kReg))));
+    auto srcWithFree = srcLayout->resize(kReg, regSize);
+    auto dstWithFree = dstLayout->resize(kReg, regSize);
     LinearLayout comp = srcWithFree.invertAndCompose(dstWithFree);
     // TODO(jlebar): These checks are overly-restrictive.  For example, we can
     // transfer by shuffling registers (case 1) if and only if all of the bases
